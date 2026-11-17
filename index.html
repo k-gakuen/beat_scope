@@ -28,20 +28,25 @@
   #multiDetail { font-size: 13.5px; color: #c8cfc9; margin-top: 6px; line-height: 1.7; white-space: pre-line; }
   #status { font-size: 12.5px; color: #9fb0ac; margin-top: 8px; line-height: 1.5; }
   .note { font-size: 12px; color: #8b98a5; line-height: 1.6; }
+  .auto-note { display:flex; flex-wrap:wrap; gap:18px; align-items:center; }
+  .auto-note .big { font-size:44px; font-weight:800; line-height:1; color:#fff; min-width:110px; }
+  .auto-note .big small { font-size:16px; color:#9fb0ac; font-weight:400; }
+  .auto-note .det { font-size:13px; color:#9fb0ac; line-height:1.6; }
+  .auto-note .det b { color:#e8e4da; font-size:15px; }
+  .cents-bar { flex:1; min-width:180px; }
+  .cents-track { height:10px; background:#232b34; border-radius:999px; position:relative; margin-top:6px; overflow:hidden; }
+  .cents-fill { position:absolute; top:0; bottom:0; background:#7fc7a5; }
+  .cents-center { position:absolute; left:50%; top:0; bottom:0; width:2px; background:#ffd9a0; }
 </style>
 </head>
 <body>
-  <h1>ユニゾン唸りスコープ（試作 v2）</h1>
-  <p class="sub">音量の時間変化（包絡線）から唸りを読みます。単一倍音モードでは目標音の成分1つを、6倍音同時モードでは基音〜第6倍音を並べて観測し、倍音ごとに逆算したずれ量の一致を確かめます。</p>
+  <h1>ユニゾン唸りスコープ（試作 v3）</h1>
+  <p class="sub">音名は設定不要です。鳴らした音の周波数から基音を自動検出し、音名を表示します。表示はスペクトラムを中心に大きくし、唸りは包絡線から裏側で解析します。</p>
 
   <div class="panel">
     <div class="row">
       <div>
-        <label>目標音</label>
-        <select id="noteSel"></select>
-      </div>
-      <div>
-        <label>A4基準</label>
+        <label>A4基準（音名判定用）</label>
         <select id="a4Sel">
           <option value="440" selected>440 Hz</option>
           <option value="441">441 Hz</option>
@@ -49,7 +54,7 @@
         </select>
       </div>
       <div>
-        <label>表示モード</label>
+        <label>解析モード</label>
         <select id="viewSel">
           <option value="single" selected>単一倍音</option>
           <option value="multi">6倍音同時</option>
@@ -71,7 +76,7 @@
     </div>
     <div class="row" style="margin-top:12px;">
       <div>
-        <label>テスト音（検出の検証用）</label>
+        <label>テスト音（検出の検証用・A4付近で自動検出）</label>
         <select id="deltaSel">
           <option value="0.3">ずれ 0.3 Hz</option>
           <option value="0.5">ずれ 0.5 Hz</option>
@@ -82,17 +87,30 @@
       </div>
       <button id="testBtn" class="warn">▶ テスト音を鳴らす</button>
     </div>
-    <p id="status">停止中。マイク測定は HTTPS のページでのみ動作します（iPadでは公開URLから開いてください）。</p>
+    <p id="status">停止中。マイク測定は HTTPS のページでのみ動作します（iPadでは公開URLから開いてください）。音を鳴らすと音名が自動で表示されます。</p>
   </div>
 
-  <div class="panel" id="envPanel">
-    <canvas id="envCanvas" width="720" height="400"></canvas>
-    <p class="note" style="margin-top:6px;">上段：音量そのもの（減衰の様子）。下段：減衰を取り除いた唸りの波形（1.0＝平均、上下の振れが唸り）。右端が現在、12秒分を表示。</p>
+  <div class="panel">
+    <div class="auto-note">
+      <div>
+        <div style="font-size:11.5px;color:#9fb0ac;">自動検出した音名</div>
+        <div class="big" id="autoNote">―</div>
+      </div>
+      <div class="det">
+        <div>検出周波数 <b id="detFreq">― Hz</b></div>
+        <div>基準（平均律） <b id="refFreq">― Hz</b> ／ ずれ <b id="detCents">― cents</b></div>
+        <div id="detState" style="color:#9fb0ac;">音を鳴らしてください</div>
+      </div>
+      <div class="cents-bar">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#9fb0ac;"><span>-50</span><span>セント偏差</span><span>+50</span></div>
+        <div class="cents-track"><div class="cents-center"></div><div class="cents-fill" id="centsFill" style="left:50%;width:2px;"></div></div>
+      </div>
+    </div>
   </div>
 
-  <div class="panel" id="multiPanel" hidden>
-    <canvas id="multiCanvas" width="720" height="432"></canvas>
-    <p class="note" style="margin-top:6px;">基音〜第6倍音の「減衰を取り除いた唸りの波形」を並べた表示です。ユニゾンのずれ Δf に対して、唸りは第n倍音で n×Δf の速さになります。レベルが小さい倍音は薄く表示されます。右端が現在、12秒分を表示。</p>
+  <div class="panel">
+    <canvas id="specCanvas" width="720" height="420"></canvas>
+    <p class="note" style="margin-top:6px;">スペクトラム（0〜3,000Hz）。黄色い線が自動検出した音の倍音（基音〜第6倍音）、水色の線が実際に検出された基音ピークです。倍音が出ているか、ユニゾンでピークが割れていないかを確認できます。</p>
   </div>
 
   <div class="panel">
@@ -106,44 +124,39 @@
     <p id="multiDetail" hidden></p>
   </div>
 
-  <div class="panel">
-    <canvas id="specCanvas" width="720" height="150"></canvas>
-    <p class="note" style="margin-top:6px;">スペクトラム（0〜3,000Hz）。黄色い線が観測中の成分です。目標音の倍音が出ているかの確認用。</p>
-  </div>
-
-  <p class="note">使い方：目標音を選び「マイクで測定」を押してから、その音を1回打鍵し、減衰するまで待つだけです。唸りが 0.2Hz 級だと1周期に5秒かかるため、判定には10秒前後の観測が必要です。3弦ユニゾンでは唸りが2つ重なることがあり、この試作では最も強い唸りを表示します。6倍音同時モードでは、各倍音から逆算したずれが一致すればユニゾンのずれ、不一致が残る場合は1本の弦自体の唸り（フォルス等）の可能性を示します。</p>
+  <p class="note">使い方：「マイクで測定」を押してから、測りたい音を1回打鍵し、減衰するまで待つだけです。音名は自動で切り替わります。唸りが 0.2Hz 級だと1周期に5秒かかるため、判定には10秒前後の観測が必要です。3弦ユニゾンでは唸りが2つ重なることがあり、この試作では最も強い唸りを表示します。6倍音同時モードでは、各倍音から逆算したずれが一致すればユニゾンのずれ、不一致が残る場合は1本の弦自体の唸り（フォルス等）の可能性を示します。基音検出はスペクトラムのピークから行い、倍音を基音と誤らないよう 1/2、1/3 の位置にピークがあるかも確認しています。</p>
 
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const noteSel = $('noteSel'), a4Sel = $('a4Sel'), partialSel = $('partialSel'), viewSel = $('viewSel');
-  const NAMES = ['C','C#','D','D#','E','F','G','G#','A','A#','B'];
+  const a4Sel = $('a4Sel'), partialSel = $('partialSel'), viewSel = $('viewSel');
+  const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
   const NPART = 6;
 
-  function noteFreq(midi) { return parseFloat(a4Sel.value) * Math.pow(2, (midi - 69) / 12); }
-  function buildNotes() {
-    const cur = noteSel.value || '69';
-    noteSel.innerHTML = '';
-    for (let m = 36; m <= 96; m++) {
-      const o = document.createElement('option');
-      o.value = m;
-      o.textContent = `${NAMES[m % 12]}${Math.floor(m / 12) - 1}（${noteFreq(m).toFixed(1)} Hz）`;
-      noteSel.appendChild(o);
-    }
-    noteSel.value = cur;
-  }
-  buildNotes();
+  // ---- auto-detected note state ----
+  let targetMidi = 69; // 現在の観測対象（自動検出で更新、初期値はA4）
+  let detectedFreq = 0; // 直近の基音ピーク周波数（Hz）
+  let detectedMidiFloat = 69;
+  let detectedCents = 0;
+  let hasDetection = false;
+  let detectHistory = []; // 直近の候補MIDI（安定化用）
+  let lastStableMidi = 69;
 
-  const targetF0 = () => noteFreq(parseInt(noteSel.value, 10));
+  function a4Freq() { return parseFloat(a4Sel.value); }
+  function freqFromMidi(midi) { return a4Freq() * Math.pow(2, (midi - 69) / 12); }
+  function midiFromFreq(f) { return 69 + 12 * Math.log2(f / a4Freq()); }
+  function noteName(midi) { return `${NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`; }
+
+  const targetF0 = () => freqFromMidi(targetMidi);
   const partial = () => parseInt(partialSel.value, 10);
   const obsFreq = () => targetF0() * partial();
   const viewMode = () => viewSel.value;
 
   // ---------- audio graph ----------
   let ctx = null, inputBus, bpFilter, envAnalyser, specAnalyser;
-  let mFilters = [], mAnalysers = []; // 6倍音同時モード用フィルタバンク
+  let mFilters = [], mAnalysers = [];
   let micStream = null, micSource = null, testNodes = [];
-  let running = false, mode = null; // 'mic' | 'test'
+  let running = false, mode = null;
 
   function bpFor(f) {
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
@@ -157,7 +170,7 @@
     inputBus = ctx.createGain(); inputBus.gain.value = 1;
     bpFilter = bpFor(obsFreq());
     envAnalyser = ctx.createAnalyser(); envAnalyser.fftSize = 2048;
-    specAnalyser = ctx.createAnalyser(); specAnalyser.fftSize = 8192; specAnalyser.smoothingTimeConstant = 0.6;
+    specAnalyser = ctx.createAnalyser(); specAnalyser.fftSize = 16384; specAnalyser.smoothingTimeConstant = 0.55;
     inputBus.connect(specAnalyser);
     inputBus.connect(bpFilter); bpFilter.connect(envAnalyser);
     mFilters = []; mAnalysers = [];
@@ -180,11 +193,119 @@
       mFilters[n - 1].Q.value = Math.min(25, Math.max(4, fn / 35));
     }
   }
-  [noteSel, a4Sel, partialSel].forEach(el => el.addEventListener('change', () => { buildNotes(); retune(); }));
+  [a4Sel, partialSel].forEach(el => el.addEventListener('change', () => { retune(); updateAutoNoteUI(); }));
+
+  // ---------- auto pitch detection from spectrum ----------
+  const specFloat = new Float32Array(8192);
+  function parabolicPeak(mags, k) {
+    if (k <= 0 || k >= mags.length - 1) return 0;
+    const a = mags[k - 1], b = mags[k], c = mags[k + 1];
+    const den = a - 2 * b + c;
+    if (Math.abs(den) < 1e-12) return 0;
+    let s = 0.5 * (a - c) / den;
+    return Math.min(0.5, Math.max(-0.5, s));
+  }
+  function levelAtFreq(freq) {
+    if (!ctx || !specAnalyser) return -999;
+    const nyq = ctx.sampleRate / 2;
+    const bin = Math.round(freq / nyq * specFloat.length);
+    if (bin < 1 || bin >= specFloat.length - 1) return -999;
+    // 近傍最大
+    return Math.max(specFloat[bin - 1], specFloat[bin], specFloat[bin + 1]);
+  }
+  function detectFundamental() {
+    if (!ctx || !running || !specAnalyser) return;
+    specAnalyser.getFloatFrequencyData(specFloat);
+    const nyq = ctx.sampleRate / 2;
+    const binHz = nyq / specFloat.length;
+    const kMin = Math.max(2, Math.floor(28 / binHz));
+    const kMax = Math.min(specFloat.length - 2, Math.ceil(2600 / binHz));
+    let peakK = -1, peakVal = -999;
+    for (let k = kMin; k <= kMax; k++) {
+      if (specFloat[k] > peakVal) { peakVal = specFloat[k]; peakK = k; }
+    }
+    if (peakK < 0 || peakVal < -72) {
+      // 音が弱い／無い
+      if (hasDetection) {
+        $('detState').textContent = '音が小さいため、前回の音名を保持しています';
+      }
+      return;
+    }
+    const shift = parabolicPeak(specFloat, peakK);
+    let freq = (peakK + shift) * binHz;
+
+    // 倍音誤認の補正：f/2, f/3 に十分なピークがあればそちらを基音とする
+    for (let iter = 0; iter < 3; iter++) {
+      let corrected = false;
+      for (const div of [2, 3]) {
+        const cand = freq / div;
+        if (cand < 27) continue;
+        const lv = levelAtFreq(cand);
+        // 候補がピークより 24dB 以内で、かつ絶対レベルが -78dB 以上なら基音候補
+        if (lv > peakVal - 24 && lv > -78) {
+          // 候補付近が実際にピーク状か（隣接binより高い）も軽く確認
+          freq = cand;
+          // peakVal は候補レベルに更新して次の反復へ
+          peakVal = lv;
+          corrected = true;
+          break;
+        }
+      }
+      if (!corrected) break;
+    }
+
+    detectedFreq = freq;
+    detectedMidiFloat = midiFromFreq(freq);
+    const nearest = Math.round(detectedMidiFloat);
+    detectedCents = Math.round((detectedMidiFloat - nearest) * 100);
+    hasDetection = true;
+
+    // 安定化：直近5回のうち3回以上同じ音名なら観測対象を切り替える
+    detectHistory.push(nearest);
+    if (detectHistory.length > 5) detectHistory.shift();
+    const counts = {};
+    detectHistory.forEach(m => counts[m] = (counts[m] || 0) + 1);
+    let bestMidi = nearest, bestCount = 0;
+    for (const k in counts) if (counts[k] > bestCount) { bestCount = counts[k]; bestMidi = parseInt(k, 10); }
+    if (bestCount >= 3 && bestMidi !== targetMidi) {
+      targetMidi = bestMidi;
+      lastStableMidi = bestMidi;
+      retune();
+      // 音名が切り替わったら包絡線は混ざるためクリアする（テスト音中は除く）
+      if (mode === 'mic') clearSamples();
+    } else if (bestCount >= 3) {
+      lastStableMidi = bestMidi;
+    }
+    updateAutoNoteUI();
+  }
+  function updateAutoNoteUI() {
+    if (!hasDetection) {
+      $('autoNote').textContent = '―';
+      $('detFreq').textContent = '― Hz';
+      $('refFreq').textContent = `${freqFromMidi(targetMidi).toFixed(1)} Hz（${noteName(targetMidi)}）`;
+      $('detCents').textContent = '― cents';
+      return;
+    }
+    const nearest = Math.round(detectedMidiFloat);
+    $('autoNote').innerHTML = `${noteName(nearest)} <small>${nearest}</small>`;
+    $('detFreq').textContent = `${detectedFreq.toFixed(1)} Hz`;
+    $('refFreq').textContent = `${freqFromMidi(nearest).toFixed(1)} Hz（${noteName(nearest)}）`;
+    const sign = detectedCents > 0 ? '+' : '';
+    $('detCents').textContent = `${sign}${detectedCents} cents`;
+    $('detState').textContent = targetMidi === nearest
+      ? `観測中：${noteName(targetMidi)}（${targetF0().toFixed(1)} Hz）を中心に唸りを解析しています`
+      : `検出：${noteName(nearest)} ／ 観測対象は ${noteName(targetMidi)} で安定待ち`;
+    // セントバー：-50..+50 を 0..100% に
+    const clamped = Math.max(-50, Math.min(50, detectedCents));
+    const fill = $('centsFill');
+    if (clamped >= 0) { fill.style.left = '50%'; fill.style.width = (clamped / 50 * 50) + '%'; fill.style.background = '#e8a87c'; }
+    else { fill.style.left = (50 + clamped / 50 * 50) + '%'; fill.style.width = (-clamped / 50 * 50) + '%'; fill.style.background = '#7fb2d9'; }
+  }
+  setInterval(detectFundamental, 220);
 
   // ---------- envelope sampling ----------
-  let samples = []; // {t, v} v = RMS（単一モード用）
-  let samplesM = Array.from({ length: NPART }, () => []); // 倍音ごとの包絡線
+  let samples = [];
+  let samplesM = Array.from({ length: NPART }, () => []);
   const td = new Float32Array(2048);
   function rmsOf(an) {
     an.getFloatTimeDomainData(td);
@@ -203,7 +324,6 @@
     requestAnimationFrame(sampleLoop);
   }
 
-  // normalized envelope: raw / 0.8s moving average (two pointers)
   function normalizedOf(arr) {
     const n = arr.length, out = new Array(n);
     let lo = 0, hi = 0, sum = 0;
@@ -240,15 +360,12 @@
     }
   }
 
-  // ---------- beat detection core ----------
-  // 包絡線サンプル列から唸り周波数を検出する。検出できなければ null。
-  // 戻り値 { beatHz, ratio }（ratio はピーク／フロア中央値）
   function detectBeat(arr, loHz, hiHz) {
     if (arr.length < 10) return null;
     const span = arr[arr.length - 1].t - arr[0].t;
     if (span < 6) return null;
     const norm = normalizedOf(arr);
-    const FS = 50, N = 512, dur = N / FS; // 10.24 s window
+    const FS = 50, N = 512, dur = N / FS;
     const tEnd = arr[arr.length - 1].t, tStart = tEnd - dur;
     const grid = new Float32Array(N);
     let j = 0;
@@ -260,8 +377,6 @@
       grid[i] = norm[j] + (norm[j + 1] - norm[j]) * Math.min(1, Math.max(0, r));
     }
     const mean = grid.reduce((s, v) => s + v, 0) / N;
-    // 変調の深さがごく小さい場合は、補間や減衰カーブ由来の見かけの揺れを
-    // 唸りと誤判定しないよう棄却する（無音源の合成信号で実測した棄却域）
     const std = Math.sqrt(grid.reduce((s, v) => s + (v - mean) * (v - mean), 0) / N);
     if (std < 0.02) return null;
     const re = new Float64Array(N), im = new Float64Array(N);
@@ -277,14 +392,12 @@
     if (!(peak > 3 * floor) || peak === 0) return null;
     const k = kMin + peakIdx;
     const a = Math.hypot(re[k - 1], im[k - 1]), b = Math.hypot(re[k], im[k]), c2 = Math.hypot(re[k + 1], im[k + 1]);
-    // 放物線補間：分母 a-2b+c はピークで負になるため、符号を保ったまま使う
     const den = a - 2 * b + c2;
     let shift = Math.abs(den) > 1e-12 ? 0.5 * (a - c2) / den : 0;
     shift = Math.min(0.5, Math.max(-0.5, shift));
     return { beatHz: (k + shift) * df, ratio: floor > 0 ? peak / floor : 99 };
   }
 
-  // 解析窓（直近10.24秒）内の平均レベル
   function windowLevel(arr) {
     if (!arr.length) return 0;
     const tEnd = arr[arr.length - 1].t;
@@ -303,7 +416,7 @@
     const res = detectBeat(samples, 0.15, 6);
     if (!res) {
       $('beatHz').innerHTML = '― <small>Hz</small>'; $('beatSec').innerHTML = '― <small>秒</small>'; $('beatCent').innerHTML = '― <small>cents</small>';
-      $('verdict').textContent = '観測範囲では、明確な唸りは検出されませんでした。';
+      $('verdict').textContent = `観測範囲では、明確な唸りは検出されませんでした。（対象：${noteName(targetMidi)}）`;
       return;
     }
     const beatFund = res.beatHz / partial();
@@ -311,11 +424,11 @@
     $('beatHz').innerHTML = `${res.beatHz.toFixed(2)} <small>Hz</small>`;
     $('beatSec').innerHTML = `${(1 / res.beatHz).toFixed(1)} <small>秒</small>`;
     $('beatCent').innerHTML = `${cents.toFixed(1)} <small>cents</small>`;
-    $('verdict').textContent = `唸りがあります：${res.beatHz.toFixed(2)} Hz（約${(1 / res.beatHz).toFixed(1)}秒周期）。基本音のずれに換算すると約 ${beatFund.toFixed(2)} Hz ≒ ${cents.toFixed(1)} セントです。`;
+    $('verdict').textContent = `唸りがあります：${res.beatHz.toFixed(2)} Hz（約${(1 / res.beatHz).toFixed(1)}秒周期）。基本音のずれに換算すると約 ${beatFund.toFixed(2)} Hz ≒ ${cents.toFixed(1)} セントです。（対象：${noteName(targetMidi)}）`;
   }
 
   // ---------- analysis: multi ----------
-  let lastMulti = []; // 倍音ごとの最新結果（描画用）
+  let lastMulti = [];
   function analyzeMulti() {
     const obsEl = $('obsSec');
     const ref = samplesM[0];
@@ -343,135 +456,83 @@
     $('multiDetail').textContent = lines.join('\n');
     if (!oks.length) {
       $('beatHz').innerHTML = '― <small>Hz</small>'; $('beatSec').innerHTML = `0 / ${NPART} <small>倍音</small>`; $('beatCent').innerHTML = '― <small>cents</small>';
-      $('verdict').textContent = '観測範囲では、どの倍音にも明確な唸りは検出されませんでした。';
+      $('verdict').textContent = `観測範囲では、どの倍音にも明確な唸りは検出されませんでした。（対象：${noteName(targetMidi)}）`;
       return;
     }
     const dfs = oks.map(r => r.deltaF).sort((a, b) => a - b);
-    const median = dfs[Math.floor(dfs.length / 2)] !== undefined && dfs.length % 2 === 0
-      ? (dfs[dfs.length / 2 - 1] + dfs[dfs.length / 2]) / 2 : dfs[Math.floor(dfs.length / 2)];
+    const median = dfs.length % 2 === 0 ? (dfs[dfs.length / 2 - 1] + dfs[dfs.length / 2]) / 2 : dfs[Math.floor(dfs.length / 2)];
     const spread = dfs[dfs.length - 1] - dfs[0];
     const cents = 1200 * Math.log2(1 + median / targetF0());
     $('beatHz').innerHTML = `${median.toFixed(2)} <small>Hz</small>`;
     $('beatSec').innerHTML = `${oks.length} / ${NPART} <small>倍音</small>`;
     $('beatCent').innerHTML = `${cents.toFixed(1)} <small>cents</small>`;
     if (oks.length === 1) {
-      $('verdict').textContent = `唸りを検出したのは第${oks[0].n}倍音だけです（ずれ換算 約 ${median.toFixed(2)} Hz ≒ ${cents.toFixed(1)} セント）。他の倍音で裏づけが取れていないため暫定値です。`;
+      $('verdict').textContent = `唸りを検出したのは第${oks[0].n}倍音だけです（ずれ換算 約 ${median.toFixed(2)} Hz ≒ ${cents.toFixed(1)} セント）。他の倍音で裏づけが取れていないため暫定値です。（対象：${noteName(targetMidi)}）`;
     } else if (spread <= Math.max(0.12, 0.25 * median)) {
-      $('verdict').textContent = `${oks.length}個の倍音の逆算が一致しました：ユニゾンのずれ 約 ${median.toFixed(2)} Hz ≒ ${cents.toFixed(1)} セントです。`;
+      $('verdict').textContent = `${oks.length}個の倍音の逆算が一致しました：ユニゾンのずれ 約 ${median.toFixed(2)} Hz ≒ ${cents.toFixed(1)} セントです。（対象：${noteName(targetMidi)}）`;
     } else {
-      $('verdict').textContent = `倍音ごとの逆算が一致しません（${dfs[0].toFixed(2)}〜${dfs[dfs.length - 1].toFixed(2)} Hz）。ユニゾンのずれだけでは説明できず、1本の弦自体の唸り（フォルス等）が混ざっている可能性があります。`;
+      $('verdict').textContent = `倍音ごとの逆算が一致しません（${dfs[0].toFixed(2)}〜${dfs[dfs.length - 1].toFixed(2)} Hz）。ユニゾンのずれだけでは説明できず、1本の弦自体の唸り（フォルス等）が混ざっている可能性があります。（対象：${noteName(targetMidi)}）`;
     }
   }
 
   function analyze() { viewMode() === 'multi' ? analyzeMulti() : analyzeSingle(); }
 
-  // ---------- drawing: single ----------
-  const envC = $('envCanvas').getContext('2d');
-  function drawEnv() {
-    const W = 720, H = 400, topH = 150;
-    envC.clearRect(0, 0, W, H);
-    envC.strokeStyle = '#2b333d'; envC.beginPath(); envC.moveTo(0, topH + 12); envC.lineTo(W, topH + 12); envC.stroke();
-    if (samples.length >= 2) {
-      const tEnd = samples[samples.length - 1].t, tStart = tEnd - 12;
-      envC.strokeStyle = '#7fc7a5'; envC.lineWidth = 1.6; envC.beginPath();
-      samples.forEach(s => {
-        if (s.t < tStart) return;
-        const x = (s.t - tStart) / 12 * W;
-        const db = 20 * Math.log10(Math.max(1e-5, s.v));
-        const y = topH - Math.min(1, Math.max(0, (db + 55) / 50)) * (topH - 12);
-        envC.lineTo(x, y);
-      });
-      envC.stroke();
-      const norm = normalizedOf(samples);
-      envC.strokeStyle = '#39434f'; envC.beginPath(); envC.moveTo(0, topH + 12 + 108); envC.lineTo(W, topH + 12 + 108); envC.stroke();
-      envC.strokeStyle = '#ffb59d'; envC.lineWidth = 1.8; envC.beginPath();
-      samples.forEach((s, i) => {
-        if (s.t < tStart) return;
-        const x = (s.t - tStart) / 12 * W;
-        const y = topH + 12 + 108 - (Math.min(1.45, Math.max(0.55, norm[i])) - 1) * 160;
-        envC.lineTo(x, y);
-      });
-      envC.stroke();
-    }
-    requestAnimationFrame(drawEnv);
-  }
-
-  // ---------- drawing: multi ----------
-  const multiC = $('multiCanvas').getContext('2d');
-  const LANE_COLORS = ['#ffb59d', '#ffd76a', '#a5d6a7', '#7fc7a5', '#7fb2d9', '#c39bd9'];
-  function drawMulti() {
-    const W = 720, laneH = 72;
-    multiC.clearRect(0, 0, W, laneH * NPART);
-    const levels = samplesM.map(a => {
-      if (a.length < 2) return 0;
-      const tEnd = a[a.length - 1].t; let s = 0, c = 0;
-      for (let i = a.length - 1; i >= 0 && a[i].t > tEnd - 2; i--) { s += a[i].v; c++; }
-      return c ? s / c : 0;
-    });
-    const strongest = Math.max(...levels, 1e-9);
-    for (let n = 1; n <= NPART; n++) {
-      const arr = samplesM[n - 1], y0 = (n - 1) * laneH, center = y0 + laneH / 2 + 8;
-      multiC.strokeStyle = '#2b333d'; multiC.beginPath(); multiC.moveTo(0, y0 + laneH - 0.5); multiC.lineTo(W, y0 + laneH - 0.5); multiC.stroke();
-      const dim = levels[n - 1] < strongest * 0.05;
-      multiC.globalAlpha = dim ? 0.35 : 1;
-      multiC.fillStyle = '#9fb0ac'; multiC.font = '11px sans-serif';
-      multiC.fillText(`第${n}倍音 ${(targetF0() * n).toFixed(0)} Hz${dim && arr.length ? '（レベル小）' : ''}`, 8, y0 + 14);
-      const res = lastMulti.find(r => r.n === n);
-      if (res && res.state === 'ok') {
-        multiC.fillStyle = LANE_COLORS[n - 1];
-        multiC.fillText(`唸り ${res.beatHz.toFixed(2)} Hz → Δ ${res.deltaF.toFixed(2)} Hz`, W - 190, y0 + 14);
-      }
-      if (arr.length >= 2) {
-        const tEnd = arr[arr.length - 1].t, tStart = tEnd - 12;
-        multiC.strokeStyle = '#39434f'; multiC.beginPath(); multiC.moveTo(0, center); multiC.lineTo(W, center); multiC.stroke();
-        const norm = normalizedOf(arr);
-        multiC.strokeStyle = LANE_COLORS[n - 1]; multiC.lineWidth = 1.6; multiC.beginPath();
-        arr.forEach((s, i) => {
-          if (s.t < tStart) return;
-          const x = (s.t - tStart) / 12 * W;
-          const y = center - (Math.min(1.45, Math.max(0.55, norm[i])) - 1) * 46;
-          multiC.lineTo(x, y);
-        });
-        multiC.stroke();
-      }
-      multiC.globalAlpha = 1;
-    }
-    requestAnimationFrame(drawMulti);
-  }
-
-  // ---------- drawing: spectrum ----------
+  // ---------- drawing: spectrum (large) ----------
   const specC = $('specCanvas').getContext('2d');
-  const specData = new Uint8Array(4096);
+  const specData = new Uint8Array(8192);
   function drawSpec() {
-    const W = 720, H = 150;
+    const W = 720, H = 420;
     specC.clearRect(0, 0, W, H);
+    // grid
+    specC.strokeStyle = '#1e262e'; specC.lineWidth = 1;
+    specC.fillStyle = '#5b6b7a'; specC.font = '11px sans-serif';
+    [100, 250, 500, 1000, 1500, 2000, 2500, 3000].forEach(f => {
+      const x = f / 3000 * W;
+      specC.beginPath(); specC.moveTo(x, 0); specC.lineTo(x, H - 18); specC.stroke();
+      specC.fillText(`${f}`, x + 3, H - 4);
+    });
+    for (let i = 1; i < 4; i++) {
+      const y = i * (H - 18) / 4;
+      specC.beginPath(); specC.moveTo(0, y); specC.lineTo(W, y); specC.stroke();
+    }
     if (ctx && running) {
       specAnalyser.getByteFrequencyData(specData);
       const nyq = ctx.sampleRate / 2, maxF = 3000;
       specC.fillStyle = '#5f7f9e';
       for (let x = 0; x < W; x++) {
         const f = x / W * maxF, bin = Math.floor(f / nyq * specData.length);
-        const h = specData[bin] / 255 * (H - 8);
-        specC.fillRect(x, H - h, 1, h);
+        const h = specData[bin] / 255 * (H - 26);
+        specC.fillRect(x, H - 18 - h, 1, h);
       }
-      specC.strokeStyle = '#ffd76a'; specC.beginPath();
-      if (viewMode() === 'multi') {
-        for (let n = 1; n <= NPART; n++) { const fx = targetF0() * n / maxF * W; specC.moveTo(fx, 0); specC.lineTo(fx, H); }
-      } else {
-        const fx = obsFreq() / maxF * W; specC.moveTo(fx, 0); specC.lineTo(fx, H);
-      }
+      // 倍音マーカー（黄色）
+      specC.strokeStyle = '#ffd76a'; specC.lineWidth = 1.2; specC.beginPath();
+      for (let n = 1; n <= NPART; n++) { const fx = targetF0() * n / maxF * W; if (fx < W) { specC.moveTo(fx, 0); specC.lineTo(fx, H - 18); } }
       specC.stroke();
+      specC.fillStyle = '#ffd76a'; specC.font = '11px sans-serif';
+      for (let n = 1; n <= NPART; n++) { const fx = targetF0() * n / maxF * W; if (fx < W - 14) specC.fillText(`${n}`, fx + 3, 14); }
+      // 検出基音ピーク（水色）
+      if (hasDetection && detectedFreq > 0 && detectedFreq < maxF) {
+        const dx = detectedFreq / maxF * W;
+        specC.strokeStyle = '#7fd4ff'; specC.lineWidth = 2; specC.beginPath(); specC.moveTo(dx, 0); specC.lineTo(dx, H - 18); specC.stroke();
+        specC.fillStyle = '#7fd4ff'; specC.fillText(`基音 ${detectedFreq.toFixed(1)}Hz`, Math.min(W - 110, dx + 6), 28);
+      }
+      // 対象音名ラベル
+      specC.fillStyle = '#e8e4da'; specC.font = '13px sans-serif';
+      specC.fillText(`${noteName(targetMidi)}  ${targetF0().toFixed(1)} Hz を観測中`, 10, H - 24);
+    } else {
+      specC.fillStyle = '#5b6b7a'; specC.font = '14px sans-serif';
+      specC.fillText('測定を開始するとスペクトラムが表示されます', 16, 28);
+      specC.font = '12px sans-serif';
+      specC.fillText(`現在の観測対象（初期値）：${noteName(targetMidi)} ${targetF0().toFixed(1)} Hz ― 音を鳴らすと自動で切り替わります`, 16, 48);
     }
     requestAnimationFrame(drawSpec);
   }
-  requestAnimationFrame(drawEnv); requestAnimationFrame(drawMulti); requestAnimationFrame(drawSpec);
+  requestAnimationFrame(drawSpec);
   setInterval(analyze, 1000);
 
   // ---------- view switching ----------
   function applyView() {
     const multi = viewMode() === 'multi';
-    $('envPanel').hidden = multi;
-    $('multiPanel').hidden = !multi;
     $('multiDetail').hidden = !multi;
     partialSel.disabled = multi;
     $('kBeat').textContent = multi ? 'ずれ Δf（合意値）' : '唸りの速さ';
@@ -488,9 +549,6 @@
   }
   function clearSamples() { samples = []; samplesM = Array.from({ length: NPART }, () => []); lastMulti = []; }
   async function startMic() {
-    // Safari対策（チューナーで実証済み）：AudioContextはストリーム取得「後」に作る。
-    // 先に作るとWebKitでマイクソースが無音になる。制約は音声処理OFFが必須
-    // （AGCが効くと包絡線そのものが歪み、うなりの波形が壊れるため）。
     try {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     } catch (e) {
@@ -499,17 +557,16 @@
     }
     ensureCtx(); await ctx.resume();
     micSource = ctx.createMediaStreamSource(micStream);
-    // 音声処理OFFでは生レベルが小さいため、解析用ゲインを入れる（チューナーと同じ×4）
     const micGain = ctx.createGain(); micGain.gain.value = 4;
     micSource.connect(micGain); micGain.connect(inputBus);
     running = true; mode = 'mic'; clearSamples();
-    status.textContent = viewMode() === 'multi'
-      ? `測定中（マイク）：目標 ${targetF0().toFixed(1)} Hz の基音〜第6倍音を観測しています。打鍵してください。`
-      : `測定中（マイク）：目標 ${obsFreq().toFixed(1)} Hz の成分を観測しています。打鍵してください。`;
+    detectHistory = [];
+    status.textContent = `測定中（マイク）：音を鳴らすと音名を自動検出します。打鍵してください。`;
     setRunningUI(); sampleLoop();
   }
   function startTest() {
     ensureCtx(); ctx.resume();
+    // テスト音は現在の観測対象（未検出ならA4）で鳴らす。自動検出で同じ音名にロックされる想定
     const f0 = targetF0(), delta = parseFloat($('deltaSel').value), t = ctx.currentTime;
     const master = ctx.createGain(); master.gain.setValueAtTime(0.85, t);
     master.gain.exponentialRampToValueAtTime(0.0008, t + 11);
@@ -524,8 +581,8 @@
     });
     running = true; mode = 'test'; clearSamples();
     status.textContent = viewMode() === 'multi'
-      ? `テスト音：${f0.toFixed(1)} Hz と ${(f0 + delta).toFixed(1)} Hz を合成中。各倍音では唸り ${delta}×倍音次数 Hz になり、全倍音の逆算が ${delta} Hz に一致するはずです。`
-      : `テスト音：${f0.toFixed(1)} Hz と ${(f0 + delta).toFixed(1)} Hz を合成中。観測成分では唸り ${(delta * partial()).toFixed(1)} Hz になるはずです。`;
+      ? `テスト音：${f0.toFixed(1)} Hz と ${(f0 + delta).toFixed(1)} Hz を合成中。各倍音では唸り ${delta}×倍音次数 Hz になり、全倍音の逆算が ${delta} Hz に一致するはずです。音名は自動検出されます。`
+      : `テスト音：${f0.toFixed(1)} Hz と ${(f0 + delta).toFixed(1)} Hz を合成中。観測成分では唸り ${(delta * partial()).toFixed(1)} Hz になるはずです。音名は自動検出されます。`;
     setRunningUI(); sampleLoop();
     setTimeout(() => { if (mode === 'test') stopAll(); }, 12000);
   }
@@ -540,8 +597,9 @@
   $('micBtn').addEventListener('click', startMic);
   $('testBtn').addEventListener('click', startTest);
   $('stopBtn').addEventListener('click', stopAll);
-  $('clearBtn').addEventListener('click', () => { clearSamples(); analyze(); });
+  $('clearBtn').addEventListener('click', () => { clearSamples(); detectHistory = []; analyze(); });
   applyView();
+  updateAutoNoteUI();
 })();
 </script>
 </body>
