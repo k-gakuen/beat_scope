@@ -110,7 +110,7 @@
 
   <div class="panel">
     <canvas id="specCanvas" width="720" height="420"></canvas>
-    <p class="note" style="margin-top:6px;">スペクトラム（0〜3,000Hz、縦軸は -32〜-80 dB の拡大表示）。水色の線が実際に検出された基音ピークです。縦軸の表示幅を 70dB から 48dB に狭めたため、唸りによるピークの高さの上下が以前より大きく見えます。倍音が出ているか、ユニゾンでピークが割れていないかを確認できます。</p>
+    <p class="note" style="margin-top:6px;">スペクトラム（0〜3,000Hz、縦軸は -32〜-80 dB の拡大表示）。縦軸の表示幅を 70dB から 48dB に狭めたため、唸りによるピークの高さの上下が以前より大きく見えます。倍音が出ているか、ユニゾンでピークが割れていないかを確認できます。</p>
   </div>
 
   <div class="panel">
@@ -517,12 +517,6 @@
         const f = x / W * maxF, bin = Math.floor(f / nyq * specDraw.length);
         const h = dbToHeight(specDraw[bin], plotH);
         if (h > 0.5) specC.fillRect(x, H - 18 - h, 1, h);
-      }
-      // 検出基音ピーク（水色）
-      if (hasDetection && detectedFreq > 0 && detectedFreq < maxF) {
-        const dx = detectedFreq / maxF * W;
-        specC.strokeStyle = '#7fd4ff'; specC.lineWidth = 2; specC.beginPath(); specC.moveTo(dx, 0); specC.lineTo(dx, H - 18); specC.stroke();
-        specC.fillStyle = '#7fd4ff'; specC.font = '11px sans-serif'; specC.fillText(`基音 ${detectedFreq.toFixed(1)}Hz`, Math.min(W - 110, dx + 6), 28);
       }
       // 対象音名ラベル
       specC.fillStyle = '#e8e4da'; specC.font = '13px sans-serif';
